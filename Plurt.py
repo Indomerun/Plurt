@@ -14,7 +14,6 @@ import numpy as np
 import time
 import os
 import glob #For extracting filenames from directory
-import numexpr as ne #For evaluating an expression
 
 
 """
@@ -118,7 +117,6 @@ def show_plot(figure_id=None):
 
 grid = {}
 pData = {}
-pString = {}
 trackData = {}
 norm = {}
 cmaps = {}
@@ -139,41 +137,37 @@ MeV=0.0000016021765700000000157555805901932189
 
 dirDiv = '/'
 dataFolders = ['Ex2D','Ey2D','Electron2D','Proton2D']
-pNames = ['E2D','Electron2D','Proton2D','tracks']
+pNames = ['Ex2D','Electron2D','Proton2D','tracks']
 cbar = False
 tracksFadeFactor = math.sqrt(math.sqrt(0.5))
 tracksCutoff = 0.1*MeV
 trackSkip = 100
 
 
-pString['Electron2D'] = 'Electron2D'
-pString['Proton2D'] = 'Proton2D'
-pString['E2D'] = 'sqrt(Ey2D**2+Ex2D**2)'
-
 cmaps_Size['Electron2D'] = 256
 cmaps_Size['Proton2D'] = 256
-cmaps_Size['E2D'] = 256
+cmaps_Size['Ex2D'] = 256
 cmaps_Size['tracks'] = 256
 
 clim['Electron2D'] = (0,5e6)
 clim['Proton2D'] = (0,1e5)
-clim['E2D'] = (0,5e8)
+clim['Ex2D'] = (0,5e8)
 clim['tracks'] = (0,10*MeV)
 
 cmin['Electron2D'] = 0
 cmin['Proton2D'] = 0
-cmin['E2D'] = 0
+cmin['Ex2D'] = 0
 cmin['tracks'] = 0
 
 alim['Electron2D'] = 0, 1, 0.75
 alim['Proton2D'] = 0, 1, 1
-alim['E2D'] = 0, 1, 0.75
+alim['Ex2D'] = 0, 1, 0.75
 alim['tracks'] = 1, 1, 1
 
 
 cmaps['Electron2D'] = makeCmap('my_cmap1', cmaps_Size['Electron2D'], ['g',0.75,'g','k'], clim['Electron2D'], cmin['Electron2D'], alim['Electron2D'])
 cmaps['Proton2D'] = makeCmap('my_cmap2', cmaps_Size['Proton2D'], ['m'], clim['Proton2D'], cmin['Proton2D'], alim['Proton2D'])
-cmaps['E2D'] = makeCmap('my_cmap3', cmaps_Size['E2D'], ['w','r',alim['E2D'][2],'r','k'], clim['E2D'], cmin['E2D'], alim['E2D'])
+cmaps['Ex2D'] = makeCmap('my_cmap3', cmaps_Size['Ex2D'], ['w','r',alim['Ex2D'][2],'r','k'], clim['Ex2D'], cmin['Ex2D'], alim['Ex2D'])
 cmaps['tracks'] = makeCmap('my_cmap4', cmaps_Size['tracks'], ['yellow', 'red'], clim['tracks'], cmin['tracks'], alim['tracks'])
 
 
@@ -213,7 +207,7 @@ for i in range(len(files)):
                 imax[pName].set_clim(clim[pName])
             
             else:
-                pData[pName] = ne.evaluate(pString[pName], local_dict=grid)
+                pData[pName] = grid[pName]
             
                 norm[pName] = mpl.colors.Normalize(clim[pName][0], clim[pName][1])
                 img_array = plt.get_cmap(cmaps[pName])(norm[pName](pData[pName]))
@@ -250,10 +244,8 @@ for i in range(len(files)):
                 img_array[..., 3] = trackAlpha
                 imax[pName].set_data(img_array)
             else:
-                pData[pName] = ne.evaluate(pString[pName], local_dict=grid)
+                pData[pName] = grid[pName]
                 imax[pName].set_data(pData[pName])
 
     show_plot()
-    time.sleep(0.01)
     fig.savefig(os.path.splitext(Current_filename)[0]+'.png', format='png', dpi=300)
-    time.sleep(0.01)
