@@ -4,6 +4,7 @@ import numpy as np
 import os
 import glob
 from tqdm import tqdm
+#from matplotlib.collections import LineCollection
 
 from matplotlib.image import NonUniformImage
 
@@ -32,6 +33,39 @@ def bresenham(x,y,x2,y2):
         x = x + sx
         d = d + (2 * dy)
     return coords
+
+def initializeTrackMatrix(i,trackData,tracksCutoff):
+    trackDataMatrix = np.zeros((1024, 1024))
+    trackAlpha = np.zeros((1024, 1024))
+    for track in trackData:
+        if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
+            currentBin = (int(1024 * (trackData[track][i, 1] - Y_Min) / (Y_Max - Y_Min)),
+                          int(1024 * (trackData[track][i, 0] - X_Min) / (X_Max - X_Min)))
+            trackDataMatrix[currentBin] = trackData[track][i, 6] / MeV
+            trackAlpha[currentBin] = 1
+    return trackDataMatrix, trackAlpha
+
+def updateTrackMatrix(i,trackData,trackDataMatrix,trackAlpha,tracksFadeFactor,tracksCutoff):
+    trackAlpha *= tracksFadeFactor
+    for track in trackData:
+        if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
+            previousBin = (int(1024 * (trackData[track][i - 1, 1] - Y_Min) / (Y_Max - Y_Min)),
+                           int(1024 * (trackData[track][i - 1, 0] - X_Min) / (X_Max - X_Min)))
+            currentBin = (int(1024 * (trackData[track][i, 1] - Y_Min) / (Y_Max - Y_Min)),
+                          int(1024 * (trackData[track][i, 0] - X_Min) / (X_Max - X_Min)))
+
+            Bins = bresenham(previousBin[0], previousBin[1], currentBin[0], currentBin[1])
+            for bin in Bins:
+                trackDataMatrix[bin] = trackData[track][i, 6] / MeV
+                trackAlpha[bin] = 1
+            trackDataMatrix[currentBin] = trackData[track][i, 6] / MeV
+            trackAlpha[currentBin] = 1
+
+def getTrackMatrix(i,trackData,tracksFadeFactor,tracksCutoff):
+    trackDataMatrix, trackAlpha = initializeTrackMatrix(i, trackData, tracksCutoff)
+    for j in range(max(0,i-32),i+1):
+        updateTrackMatrix(j, trackData, trackDataMatrix, trackAlpha, tracksFadeFactor, tracksCutoff)
+    return trackDataMatrix, trackAlpha
 
 # Return a copy of the cmap
 def getCMapCopy(cmapName):
@@ -186,13 +220,37 @@ alpha['Proton2D'] = Sqrt
 alpha['Ex2D'] = LinearSymmetric
 alpha['tracks'] = Opaque
 
+## Create colormaps and data mappings
+for pName in pNames+['tracks']:
+    ## Create rgba colormap
+    custom_cmap[pName] = getCMapCopy(cmap[pName])
+    setAlpha(custom_cmap[pName], alpha[pName])
+    mpl.cm.register_cmap(pName + "_alpha", custom_cmap[pName])
+
+    ## Create float -> rgba mapping
+    if cmapNorm[pName] == 'linear':
+        custom_norm[pName] = mpl.colors.Normalize(vmin=clim[pName][0], vmax=clim[pName][1])
+    elif cmapNorm[pName] == 'logarithmic':
+        custom_norm[pName] = mpl.colors.LogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
+    # elif cmapNorm[pName] == 'symlogarithmic'
+    #    custom_norm[pName] = mpl.colors.SymLogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
+    # elif cmapNorm[pName] == 'power'
+    #    custom_norm[pName] = mpl.colors.PowerNorm(vmin=clim[pName][0], vmax=clim[pName][1])
+    customDataMapper[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=(pName + "_alpha"))
+
+    ## Map rgba cmap -> rgb
+    custom_cmap[pName] = getAlphaBlendedCMap(pName + "_alpha")
+    mpl.cm.register_cmap(pName + "_alpha_blended", custom_cmap[pName])
+    custom_cbar[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=(pName + "_alpha_blended"))
+    custom_cbar[pName].set_array(0)
+
 
 # Fetch file names
 files = sorted([os.path.basename(filename) for filename in glob.glob(dataFolders[0] + dirDiv + '*.bin')])
 
 trackFiles = [os.path.basename(x) for x in glob.glob('ParticleTracking/*.txt')]
-trackDataMatrix = np.zeros((1024,1024))
-trackAlpha = np.zeros((1024,1024))
+for track in trackFiles[::trackSkip]:
+    trackData[track] = np.loadtxt('ParticleTracking' + dirDiv + track)
 
 # Declare the figure
 plt.rc('text', usetex=True)
@@ -204,31 +262,6 @@ x = np.linspace(X_Min/1e-4,X_Max/1e-4,1024)
 y = np.linspace(Y_Min/1e-4,Y_Max/1e-4,1024)
 
 for i in tqdm(range(len(files))):
-    ## Create colormaps and data mappings
-    if i == 0:
-        for pName in pNames:
-            ## Create rgba colormap
-            custom_cmap[pName] = getCMapCopy(cmap[pName])
-            setAlpha(custom_cmap[pName], alpha[pName])
-            mpl.cm.register_cmap(pName + "_alpha", custom_cmap[pName])
-
-            ## Create float -> rgba mapping
-            if cmapNorm[pName] == 'linear':
-                custom_norm[pName] = mpl.colors.Normalize(vmin=clim[pName][0], vmax=clim[pName][1])
-            elif cmapNorm[pName] == 'logarithmic':
-                custom_norm[pName] = mpl.colors.LogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-            #elif cmapNorm[pName] == 'symlogarithmic'
-            #    custom_norm[pName] = mpl.colors.SymLogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-            #elif cmapNorm[pName] == 'power'
-            #    custom_norm[pName] = mpl.colors.PowerNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-            customDataMapper[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=(pName + "_alpha"))
-
-            ## Map rgba cmap -> rgb
-            custom_cmap[pName] = getAlphaBlendedCMap(pName + "_alpha")
-            mpl.cm.register_cmap(pName + "_alpha_blended", custom_cmap[pName])
-            custom_cbar[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=(pName + "_alpha_blended"))
-            custom_cbar[pName].set_array(0)
-
     ## load data
     for folder in dataFolders:
         Current_filename = files[i]
@@ -236,37 +269,13 @@ for i in tqdm(range(len(files))):
 
     ## data -> pdata -> rgba -> rgb
     for idx, pName in enumerate(pNames):
-        # Calculate tracks
         if pName == 'tracks':
-            trackAlpha *= tracksFadeFactor
-            for track in trackFiles[::trackSkip]:
-                if i == 0:
-                    trackData[track] = np.loadtxt('ParticleTracking' + dirDiv + track)
-                    if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
-                        currentBin = (int(1024 * (trackData[track][i, 1] - Y_Min) / (Y_Max - Y_Min)),
-                                      int(1024 * (trackData[track][i, 0] - X_Min) / (X_Max - X_Min)))
-                        trackDataMatrix[currentBin] = trackData[track][i, 6]/MeV
-                        trackAlpha[currentBin] = 1
-                else:
-                    if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
-                        previousBin = (int(1024 * (trackData[track][i - 1, 1] - Y_Min) / (Y_Max - Y_Min)),
-                                       int(1024 * (trackData[track][i - 1, 0] - X_Min) / (X_Max - X_Min)))
-                        currentBin = (int(1024 * (trackData[track][i, 1] - Y_Min) / (Y_Max - Y_Min)),
-                                      int(1024 * (trackData[track][i, 0] - X_Min) / (X_Max - X_Min)))
-
-                        Bins = bresenham(previousBin[0], previousBin[1], currentBin[0], currentBin[1])
-                        for bin in Bins:
-                            trackDataMatrix[bin] = trackData[track][i, 6]/MeV
-                            trackAlpha[bin] = 1
-                        trackDataMatrix[currentBin] = trackData[track][i, 6]/MeV
-                        trackAlpha[currentBin] = 1
+            trackDataMatrix, trackAlpha = getTrackMatrix(i, trackData, tracksFadeFactor, tracksCutoff)
             pData[pName] = trackDataMatrix
         else:
             pData[pName] = data[pName]
 
         data_RGBA[pName] = customDataMapper[pName].to_rgba(pData[pName])
-
-        # Calculate tracks
         if pName == 'tracks':
             data_RGBA[pName][..., 3] = trackAlpha
 
@@ -281,6 +290,16 @@ for i in tqdm(range(len(files))):
         im = NonUniformImage(ax)
         im.set_data(x, y, data_RGB)
         ax.images.append(im)
+
+        #trackax = {}
+        #for track in trackFiles[::trackSkip]:
+        #    points = np.array([trackData[track][:1, 0] / 1e-4, trackData[track][:1, 1] / 1e-4]).T.reshape(-1, 1, 2)
+        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        #    trackax[track] = LineCollection(segments, array=trackData[track][:1, 6] / MeV, cmap=('tracks' + "_alpha"),
+        #                                    norm=custom_norm['tracks'])
+        #    ax.add_collection(trackax[track])
+
+
         ax.set_xlim(plotExtent[0], plotExtent[1])
         ax.set_ylim(plotExtent[2], plotExtent[3])
         ax.set_aspect('equal')
@@ -291,8 +310,17 @@ for i in tqdm(range(len(files))):
             if cbar[pName]:
                 plt.colorbar(custom_cbar[pName], ax=ax, shrink=0.52, label=cbar_label[pName])
         fig.set_tight_layout(True)
+
+
     else:
         im.set_data(x, y, data_RGB)
+        #for track in trackFiles[::trackSkip]:
+        #    points = np.array([trackData[track][max(0,i-10):i+1, 0] / 1e-4, trackData[track][max(0,i-10):i+1, 1] / 1e-4]).T.reshape(-1, 1, 2)
+        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        #    trackax[track].set_segments(segments)
+        #    trackax[track].set_array(trackData[track][max(0,i-10):i+1, 6] / MeV)
+
+
     ax.set_title("Frame " + str(i))
     fig = plt.gcf()
     #fig.show()
