@@ -1,12 +1,16 @@
 import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import glob
-from tqdm import tqdm
+#from tqdm import tqdm
 #from matplotlib.collections import LineCollection
 
 from matplotlib.image import NonUniformImage
+
+import time
+import multiprocessing
 
 def bresenham(x,y,x2,y2):
     """Brensenham line algorithm"""
@@ -141,6 +145,79 @@ def getAlphaBlendedCMap(cmapName):
     new_cmapName = None
     return cmapBase.from_list(new_cmapName, alphaBlend(src_RGBA, dst_RGBA))
 
+def plot2D(i):
+    # Declare structs
+    data = {}
+    data_RGBA = {}
+
+    # Declare the figure
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    fig, ax = plt.subplots(nrows=1)
+
+    ## load data
+    for folder in dataFolders:
+        Current_filename = files[i]
+        data[folder] = (np.fromfile(folder + dirDiv + Current_filename, dtype='f')).reshape(size[folder])
+
+    ## data -> pdata -> rgba -> rgb
+    for idx, pName in enumerate(pNames):
+        if pName == 'tracks':
+            trackDataMatrix, trackAlpha = getTrackMatrix(i, trackData, tracksFadeFactor, tracksCutoff)
+            pData[pName] = trackDataMatrix
+        else:
+            pData[pName] = data[pName]
+
+        data_RGBA[pName] = customDataMapper[pName].to_rgba(pData[pName])
+        if pName == 'tracks':
+            data_RGBA[pName][..., 3] = trackAlpha
+
+        if idx == 0:
+            background = np.ones(data_RGBA[pName].shape)
+            data_RGB = alphaBlend(data_RGBA[pName], background)
+        else:
+            data_RGB = alphaBlend(data_RGBA[pName], data_RGB)
+
+    # Plot rgb data
+    #if i == 0:
+    im = NonUniformImage(ax)
+    im.set_data(x, y, data_RGB)
+    ax.images.append(im)
+
+    #trackax = {}
+    #for track in trackFiles[::trackSkip]:
+    #    points = np.array([trackData[track][:1, 0] / 1e-4, trackData[track][:1, 1] / 1e-4]).T.reshape(-1, 1, 2)
+    #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    #    trackax[track] = LineCollection(segments, array=trackData[track][:1, 6] / MeV, cmap=('tracks' + "_alpha"),
+    #                                    norm=custom_norm['tracks'])
+    #    ax.add_collection(trackax[track])
+
+    ax.set_xlim(plotExtent[0], plotExtent[1])
+    ax.set_ylim(plotExtent[2], plotExtent[3])
+    ax.set_aspect('equal')
+
+    ax.set_xlabel(r'$x$ ($\mu$m)')
+    ax.set_ylabel(r'$y$ ($\mu$m)')
+    for pName in pNames:
+        if cbar[pName]:
+            plt.colorbar(custom_cbar[pName], ax=ax, shrink=0.52, label=cbar_label[pName])
+    fig.set_tight_layout(True)
+
+    #else:
+    #    im.set_data(x, y, data_RGB)
+        #for track in trackFiles[::trackSkip]:
+        #    points = np.array([trackData[track][max(0,i-10):i+1, 0] / 1e-4, trackData[track][max(0,i-10):i+1, 1] / 1e-4]).T.reshape(-1, 1, 2)
+        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        #    trackax[track].set_segments(segments)
+        #    trackax[track].set_array(trackData[track][max(0,i-10):i+1, 6] / MeV)
+
+    ax.set_title("Frame " + str(i))
+    #fig.show()
+    fig.canvas.draw()
+    fig.savefig(os.path.splitext(Current_filename)[0] + '.png', dpi=300)
+    print("Saved " + str(i) + "!")
+    plt.close()
+
 # Create new colormaps
 make_colormap("GreenBlack", ['g', 0.75, 'g', 'k'])
 make_colormap("RedBlack", ['r', 0.75, 'r', 'k'])
@@ -154,11 +231,9 @@ cmapNorm = {}
 cbar = {}
 alpha = {}
 
-data = {}
 custom_cmap = {}
 custom_norm = {}
 customDataMapper = {}
-data_RGBA = {}
 custom_cbar = {}
 cbar_label = {}
 
@@ -179,7 +254,7 @@ dataFolders = ['Ex2D','Electron2D','Proton2D']
 pNames = ['Ex2D','Electron2D','Proton2D','tracks']
 tracksFadeFactor = np.sqrt(np.sqrt(0.5))
 tracksCutoff = 0.1*MeV
-trackSkip = 1
+trackSkip = 1000
 
 size['Electron2D'] = (1024, 1024)
 size['Proton2D'] = (1024, 1024)
@@ -221,7 +296,7 @@ alpha['Ex2D'] = LinearSymmetric
 alpha['tracks'] = Opaque
 
 ## Create colormaps and data mappings
-for pName in pNames+['tracks']:
+for pName in pNames:
     ## Create rgba colormap
     custom_cmap[pName] = getCMapCopy(cmap[pName])
     setAlpha(custom_cmap[pName], alpha[pName])
@@ -244,7 +319,6 @@ for pName in pNames+['tracks']:
     custom_cbar[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=(pName + "_alpha_blended"))
     custom_cbar[pName].set_array(0)
 
-
 # Fetch file names
 files = sorted([os.path.basename(filename) for filename in glob.glob(dataFolders[0] + dirDiv + '*.bin')])
 
@@ -252,79 +326,20 @@ trackFiles = [os.path.basename(x) for x in glob.glob('ParticleTracking/*.txt')]
 for track in trackFiles[::trackSkip]:
     trackData[track] = np.loadtxt('ParticleTracking' + dirDiv + track)
 
-# Declare the figure
-plt.rc('text', usetex=True)
-plt.rc('font', family='serif')
-fig, ax = plt.subplots(nrows=1)
-
 plotExtent = [X_Min/1e-4,X_Max/1e-4,Y_Min/1e-4,Y_Max/1e-4]
 x = np.linspace(X_Min/1e-4,X_Max/1e-4,1024)
 y = np.linspace(Y_Min/1e-4,Y_Max/1e-4,1024)
 
-for i in tqdm(range(len(files))):
-    ## load data
-    for folder in dataFolders:
-        Current_filename = files[i]
-        data[folder] = (np.fromfile(folder + dirDiv + Current_filename, dtype='f')).reshape(size[folder])
+def main():
+    pool = multiprocessing.Pool(processes=2)
+    pool.imap_unordered(plot2D, range(len(files)))
+    pool.close()
+    pool.join()
 
-    ## data -> pdata -> rgba -> rgb
-    for idx, pName in enumerate(pNames):
-        if pName == 'tracks':
-            trackDataMatrix, trackAlpha = getTrackMatrix(i, trackData, tracksFadeFactor, tracksCutoff)
-            pData[pName] = trackDataMatrix
-        else:
-            pData[pName] = data[pName]
+    #for i in tqdm(range(len(files))):
+    #    plot2D(i)
 
-        data_RGBA[pName] = customDataMapper[pName].to_rgba(pData[pName])
-        if pName == 'tracks':
-            data_RGBA[pName][..., 3] = trackAlpha
-
-        if idx == 0:
-            background = np.ones(data_RGBA[pName].shape)
-            data_RGB = alphaBlend(data_RGBA[pName], background)
-        else:
-            data_RGB = alphaBlend(data_RGBA[pName], data_RGB)
-
-    # Plot rgb data
-    if i == 0:
-        im = NonUniformImage(ax)
-        im.set_data(x, y, data_RGB)
-        ax.images.append(im)
-
-        #trackax = {}
-        #for track in trackFiles[::trackSkip]:
-        #    points = np.array([trackData[track][:1, 0] / 1e-4, trackData[track][:1, 1] / 1e-4]).T.reshape(-1, 1, 2)
-        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        #    trackax[track] = LineCollection(segments, array=trackData[track][:1, 6] / MeV, cmap=('tracks' + "_alpha"),
-        #                                    norm=custom_norm['tracks'])
-        #    ax.add_collection(trackax[track])
-
-
-        ax.set_xlim(plotExtent[0], plotExtent[1])
-        ax.set_ylim(plotExtent[2], plotExtent[3])
-        ax.set_aspect('equal')
-
-        ax.set_xlabel(r'$x$ ($\mu$m)')
-        ax.set_ylabel(r'$y$ ($\mu$m)')
-        for pName in pNames:
-            if cbar[pName]:
-                plt.colorbar(custom_cbar[pName], ax=ax, shrink=0.52, label=cbar_label[pName])
-        fig.set_tight_layout(True)
-
-
-    else:
-        im.set_data(x, y, data_RGB)
-        #for track in trackFiles[::trackSkip]:
-        #    points = np.array([trackData[track][max(0,i-10):i+1, 0] / 1e-4, trackData[track][max(0,i-10):i+1, 1] / 1e-4]).T.reshape(-1, 1, 2)
-        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        #    trackax[track].set_segments(segments)
-        #    trackax[track].set_array(trackData[track][max(0,i-10):i+1, 6] / MeV)
-
-
-    ax.set_title("Frame " + str(i))
-    fig = plt.gcf()
-    #fig.show()
-    fig.canvas.draw()
-    fig.savefig(os.path.splitext(Current_filename)[0] + '.png', dpi=300)
-
+t0 = time.time()
+main()
+print(time.time()-t0)
 
