@@ -65,9 +65,6 @@ def get_label(dim, axesSettings):
 
 
 def setAxis(ax, axesSettings):
-    ax.ticklabel_format(axis='x', style='sci', scilimits=(-2, 2))
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-
     xlabel = get_label('x', axesSettings)
     ylabel = get_label('y', axesSettings)
 
@@ -84,13 +81,15 @@ def setAxis(ax, axesSettings):
             if key == 'xscale':
                 ax.set_xscale(value)
             if key == 'visible_xticks':
-                #plt.xticks(ax=ax,visible=value)
                 if not value:
                     ax.set_xticklabels([])
             if key == 'xlabel_top':
                 if value:
                     ax.tick_params(axis='x', which='both', labelbottom='off', labeltop='on')
                     ax.xaxis.set_label_position('top')
+            if key == 'xticks_out':
+                if value:
+                    ax.get_xaxis().set_tick_params(which='both', direction='out')
             if ylabel is not None:
                 ax.set_ylabel(ylabel)
             if key == 'ylim':
@@ -98,13 +97,15 @@ def setAxis(ax, axesSettings):
             if key == 'yscale':
                 ax.set_yscale(value)
             if key == 'visible_yticks':
-                #plt.yticks(visible=value)
                 if not value:
                     ax.set_yticklabels([])
             if key == 'ylabel_right':
                 if value:
                     ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
                     ax.yaxis.set_label_position('right')
+            if key == 'yticks_out':
+                if value:
+                    ax.get_yaxis().set_tick_params(which='both', direction='out')
 
     if 'xunits_value' in axesSettings.keys():
         xticks = ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x/axesSettings['xunits_value']))
@@ -122,6 +123,10 @@ def setAxes(axes, axesSettings):
 
 def createAxes(axes, axesSettings):
     ax = initializeAxes(axes, axesSettings)
+
+    ax.ticklabel_format(axis='x', style='sci', scilimits=(-2, 2))
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+
     return ax
 
 

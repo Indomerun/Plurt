@@ -23,8 +23,15 @@ axesSettings1 = dict(name='XY',
                      colspan=2,
                      xlim=[X_Min, X_Max],
                      ylim=[Y_Min, Y_Max],
-                     xlabel='$x$ [cm]',
-                     ylabel='$y$ [cm]')
+                     xlabel='$x$',
+                     xunits=r'\textmu m',
+                     xunits_value=1e-4,
+                     xticks_out=True,
+                     ylabel='$y$',
+                     yunits=r'\textmu m',
+                     yunits_value=1e-4,
+                     yticks_out=True,
+                     aspect='equal')
 
 axesSettings2 = dict(name='XY_inset',
                      parent_axes='XY',
@@ -75,7 +82,8 @@ plotSettings1 = dict(name='Ex2D',
                      norm='linear',
                      show_cbar=True,
                      cax='Ex2D_cbar',
-                     cbar_label=r'$E_x$')
+                     cbarlabel=r'$E_x$',
+                     cbarunits=r'cgs')
 
 plotSettings2 = dict(name='Electron2D',
                      ax='XY',
@@ -91,7 +99,8 @@ plotSettings2 = dict(name='Electron2D',
                      norm='logarithmic',
                      show_cbar=True,
                      cax='Electron2D_cbar',
-                     cbar_label=r'Electron Density')
+                     cbarlabel=r'$N_e$',
+                     cbarunits=r'cgs')
 
 plotSettings3 = dict(name='Proton2D',
                      ax='XY',
@@ -107,7 +116,8 @@ plotSettings3 = dict(name='Proton2D',
                      norm='logarithmic',
                      show_cbar=True,
                      cax='Proton2D_cbar',
-                     cbar_label=r'Proton Density')
+                     cbarlabel=r'$N_p$',
+                     cbarunits=r'cgs')
 
 
 axesSettings.append(axesSettings1)
@@ -120,6 +130,7 @@ axesSettings.append(axesSettings6)
 plotSettings.append(plotSettings1)
 plotSettings.append(plotSettings2)
 plotSettings.append(plotSettings3)
+
 plotSettings.append(plotSettings1.copy())
 plotSettings.append(plotSettings2.copy())
 plotSettings.append(plotSettings3.copy())
@@ -133,5 +144,4 @@ plotSettings[6]['ax'] = 'XY_inset_inset'
 plotSettings[7]['ax'] = 'XY_inset_inset'
 plotSettings[8]['ax'] = 'XY_inset_inset'
 
-
-plot.Plot(axesSettings, plotSettings, False)
+plot.Plot(axesSettings, plotSettings)

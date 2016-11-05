@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import TransparentColormaps as tc
+import CreateAxes as ca
 import os
 
 
@@ -72,9 +73,13 @@ def plot_rgba(axes, data, plotSettings, dependableSettings):
 
 def plot_cbar(axes, plotSettings, dependableSettings):
     if 'cax' in plotSettings.keys():
-        plt.colorbar(dependableSettings['mappable'], cax=axes[plotSettings['cax']])
+        cbar = plt.colorbar(dependableSettings['mappable'], cax=axes[plotSettings['cax']])
     else:
-        plt.colorbar(dependableSettings['mappable'], ax=axes[plotSettings['ax']])
+        cbar = plt.colorbar(dependableSettings['mappable'], ax=axes[plotSettings['ax']])
+    label = ca.get_label('cbar', plotSettings)
+    for key, value in plotSettings.items():
+        if label is not None:
+            cbar.set_label(label)
 
 
 def plot_line(axes, data, plotSettings, dependableSettings):
@@ -103,6 +108,6 @@ def add_plots(axes, plotSettings, dependableSettings, frameNumber):
 # TODO: Add multiprocessing
 # TODO: Implement alternative "alpha"-blending
 # TODO: Add 'zorder' for manual control of what will be on top
-# TODO: Fix ticks scaling
-
-# TODO: Ticks outside
+# TODO: Option for hiding the bbox, ticks, tick labels and labels
+# TODO: Move get_label to a new file for auxilary functions
+# TODO: Rescale cbar ticks with units

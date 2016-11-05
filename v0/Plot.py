@@ -33,6 +33,7 @@ def Plot(axesSettings, plotSettings, saveFigures=True, i=None):
         for i in tqdm(range(200)):  # [frame]:#
             axes = ca.getAxes(axesSettings)
             cp.add_plots(axes, plotSettings, dependablePlotSettings, i)
+            ca.setAxes(axes, axesSettings)
 
             fig = plt.gcf()
             fig.set_tight_layout(True)
