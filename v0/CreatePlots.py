@@ -77,9 +77,8 @@ def plot_cbar(axes, plotSettings, dependableSettings):
     else:
         cbar = plt.colorbar(dependableSettings['mappable'], ax=axes[plotSettings['ax']])
     label = ca.get_label('cbar', plotSettings)
-    for key, value in plotSettings.items():
-        if label is not None:
-            cbar.set_label(label)
+    if label is not None:
+        cbar.set_label(label)
 
 
 def plot_line(axes, data, plotSettings, dependableSettings):
