@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
@@ -104,6 +105,13 @@ def setAxis(ax, axesSettings):
                 if value:
                     ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
                     ax.yaxis.set_label_position('right')
+
+    if 'xunits_value' in axesSettings.keys():
+        xticks = ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x/axesSettings['xunits_value']))
+        ax.xaxis.set_major_formatter(xticks)
+    if 'yunits_value' in axesSettings.keys():
+        yticks = ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x/axesSettings['yunits_value']))
+        ax.yaxis.set_major_formatter(yticks)
 
 
 def setAxes(axes, axesSettings):
