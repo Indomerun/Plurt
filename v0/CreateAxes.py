@@ -53,44 +53,67 @@ def initializeAxes(axes, axesSettings):
         return ax
 
 
-def setAxes(ax, axesSettings):
+def get_label(dim, axesSettings):
+    label = []
+    if dim + 'label' in axesSettings.keys():
+        label.append(axesSettings[dim + 'label'])
+    if dim + 'units' in axesSettings.keys():
+        label.append('[' + axesSettings[dim + 'units'] + ']')
+    if label != []:
+        return ' '.join(label)
+
+
+def setAxis(ax, axesSettings):
+    ax.ticklabel_format(axis='x', style='sci', scilimits=(-2, 2))
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+
+    xlabel = get_label('x', axesSettings)
+    ylabel = get_label('y', axesSettings)
+
     if axesSettings is not None:
         for key, value in axesSettings.items():
             if key == 'title':
                 ax.set_title(value)
-            if key == 'xlabel':
-                ax.set_xlabel(value)
+            if key == 'aspect':
+                ax.set_aspect(value)
+            if xlabel is not None:
+                ax.set_xlabel(xlabel)
             if key == 'xlim':
                 ax.set_xlim(value)
             if key == 'xscale':
                 ax.set_xscale(value)
             if key == 'visible_xticks':
-                plt.xticks(visible=value)
-                #if not value:
-                #    ax.set_xticklabels([])
+                #plt.xticks(ax=ax,visible=value)
+                if not value:
+                    ax.set_xticklabels([])
             if key == 'xlabel_top':
                 if value:
                     ax.tick_params(axis='x', which='both', labelbottom='off', labeltop='on')
                     ax.xaxis.set_label_position('top')
-            if key == 'ylabel':
-                ax.set_ylabel(value)
+            if ylabel is not None:
+                ax.set_ylabel(ylabel)
             if key == 'ylim':
                 ax.set_ylim(value)
             if key == 'yscale':
                 ax.set_yscale(value)
             if key == 'visible_yticks':
-                plt.yticks(visible=value)
-                #if not value:
-                #    ax.set_yticklabels([])
+                #plt.yticks(visible=value)
+                if not value:
+                    ax.set_yticklabels([])
             if key == 'ylabel_right':
                 if value:
                     ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
                     ax.yaxis.set_label_position('right')
 
 
+def setAxes(axes, axesSettings):
+    for settings in axesSettings:
+        ax = axes[settings['name']]
+        setAxis(ax, settings)
+
+
 def createAxes(axes, axesSettings):
     ax = initializeAxes(axes, axesSettings)
-    setAxes(ax, axesSettings)
     return ax
 
 
@@ -99,4 +122,3 @@ def getAxes(axesSettings):
     for settings in axesSettings:
         axes[settings['name']] = createAxes(axes, settings)
     return axes
-

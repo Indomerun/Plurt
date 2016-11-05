@@ -27,11 +27,24 @@ tc.make_alphablended_cmap("RdPu", "RdPu_rgb")
 
 #frame = 35
 # --- Plot --- #
-def Plot(axesSettings, plotSettings, saveFigures=True):
+def Plot(axesSettings, plotSettings, saveFigures=True, i=None):
     dependablePlotSettings = cp.getDependables(plotSettings)
-    for i in tqdm(range(200)):  # [frame]:#
+    if i is None:
+        for i in tqdm(range(200)):  # [frame]:#
+            axes = ca.getAxes(axesSettings)
+            cp.add_plots(axes, plotSettings, dependablePlotSettings, i)
+
+            fig = plt.gcf()
+            fig.set_tight_layout(True)
+            fig.canvas.draw()
+            if saveFigures:
+                fig.savefig(str(i) + '.png', dpi=300)
+            # plt.show()
+            plt.close()
+    else:
         axes = ca.getAxes(axesSettings)
         cp.add_plots(axes, plotSettings, dependablePlotSettings, i)
+        ca.setAxes(axes, axesSettings)
 
         fig = plt.gcf()
         fig.set_tight_layout(True)
