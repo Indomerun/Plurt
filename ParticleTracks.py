@@ -28,37 +28,37 @@ def bresenham(x,y,x2,y2):
     return coords
 
 
-def initializeTrackMatrix(i,trackData,tracksCutoff, matrixRange):
+def initializeTrackMatrix(i, data, tracksCutoff, matrixRange):
     trackDataMatrix = np.zeros((1024, 1024))
     trackAlpha = np.zeros((1024, 1024))
-    for track in trackData:
-        if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
-            currentBin = (int(1024 * (trackData[track][i, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
-                          int(1024 * (trackData[track][i, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
-            trackDataMatrix[currentBin] = trackData[track][i, 6]
+    for track in data:
+        if (data[track].shape[0] > i) and (data[track][i, 6] > tracksCutoff):
+            currentBin = (int(1024 * (data[track][i, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
+                          int(1024 * (data[track][i, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
+            trackDataMatrix[currentBin] = data[track][i, 6]
             trackAlpha[currentBin] = 1
     return trackDataMatrix, trackAlpha
 
 
-def updateTrackMatrix(i,trackData,trackDataMatrix,trackAlpha,tracksFadeFactor,tracksCutoff,matrixRange):
+def updateTrackMatrix(i, data, trackDataMatrix, trackAlpha, tracksCutoff, matrixRange, tracksFadeFactor):
     trackAlpha *= tracksFadeFactor
-    for track in trackData:
-        if (trackData[track].shape[0] > i) and (trackData[track][i, 6] > tracksCutoff):
-            previousBin = (int(1024 * (trackData[track][i-1, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
-                          int(1024 * (trackData[track][i-1, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
-            currentBin = (int(1024 * (trackData[track][i, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
-                          int(1024 * (trackData[track][i, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
+    for track in data:
+        if (data[track].shape[0] > i) and (data[track][i, 6] > tracksCutoff):
+            previousBin = (int(1024 * (data[track][i-1, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
+                          int(1024 * (data[track][i-1, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
+            currentBin = (int(1024 * (data[track][i, 1] - matrixRange[2]) / (matrixRange[3] - matrixRange[2])),
+                          int(1024 * (data[track][i, 0] - matrixRange[0]) / (matrixRange[1] - matrixRange[0])))
 
             Bins = bresenham(previousBin[0], previousBin[1], currentBin[0], currentBin[1])
             for bin in Bins:
-                trackDataMatrix[bin] = trackData[track][i, 6]
+                trackDataMatrix[bin] = data[track][i, 6]
                 trackAlpha[bin] = 1
-            trackDataMatrix[currentBin] = trackData[track][i, 6]
+            trackDataMatrix[currentBin] = data[track][i, 6]
             trackAlpha[currentBin] = 1
 
 
-def getTrackMatrix(i,trackData,tracksFadeFactor,tracksCutoff, matrixRange):
-    trackDataMatrix, trackAlpha = initializeTrackMatrix(i, trackData, tracksCutoff, matrixRange)
-    for j in range(max(0,i-32),i+1):
-        updateTrackMatrix(j, trackData, trackDataMatrix, trackAlpha, tracksFadeFactor, tracksCutoff, matrixRange)
+def getTrackMatrix(data, i, tracksCutoff, matrixRange, tracksFadeFactor):
+    trackDataMatrix, trackAlpha = initializeTrackMatrix(max(0,i-32), data, tracksCutoff, matrixRange)
+    for j in range(max(0,i-32)+1, i+1):
+        updateTrackMatrix(j, data, trackDataMatrix, trackAlpha, tracksCutoff, matrixRange, tracksFadeFactor)
     return trackDataMatrix, trackAlpha

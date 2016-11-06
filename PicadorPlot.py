@@ -4,211 +4,200 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import glob
-from tqdm import tqdm
-#from matplotlib.collections import LineCollection
-
-from matplotlib.image import NonUniformImage
-
-import time
-import multiprocessing
-
 import TransparentColormaps as tc
 import ParticleTracks as pt
 
-def plot2D(i):
-    # Declare structs
-    data = {}
-    data_RGBA = {}
+from tqdm import tqdm
+import time
+import multiprocessing
 
-    # Declare the figure
+
+def load_Filenames(Data):
+    for dataName in Data:
+        if Data[dataName]['type'] == 'tracks':
+            Data[dataName]['filenames'] = [os.path.basename(filename) for filename in
+                                           glob.glob(Data[dataName]['dir'] + dirDiv + '*.txt')]
+        if Data[dataName]['type'] == 'matrix':
+            Data[dataName]['filenames'] = sorted([os.path.basename(filename) for filename in glob.glob(Data[dataName]['dir'] + dirDiv + '*.bin')])
+
+
+def load_data_ParticleTracking(Data):
+    for dataName in Data:
+        if Data[dataName]['type'] == 'tracks':
+            Data[dataName]['data'] = {}
+            for track in Data[dataName]['filenames'][::trackSkip]:
+                Data[dataName]['data'][track] = np.loadtxt(Data[dataName]['dir'] + dirDiv + track)
+
+
+def load_data_Matrix(Data, i):
+    for dataName in Data:
+        if Data[dataName]['type'] == 'matrix':
+            Data[dataName]['data'] = (np.fromfile(Data[dataName]['dir'] + dirDiv + Data[dataName]['filenames'][i], dtype='f')).reshape(Data[dataName]['size'])
+
+
+def create_mappables(pData):
+    for pDataName in pData:
+        if pData[pDataName]['type'] == 'rgba':
+            n = len(pData[pDataName]['input'])
+            pData[pDataName]['rgba_mappable'] = [0]*n
+            pData[pDataName]['cbar_mappable'] = [0]*n
+            for i in range(n):
+                ## Create float -> rgba mapping
+                if pData[pDataName]['norm'][i] == 'linear':
+                    pData[pDataName]['norm'][i] = mpl.colors.Normalize(vmin=pData[pDataName]['clim'][i][0], vmax=pData[pDataName]['clim'][i][1])
+                elif pData[pDataName]['norm'][i] == 'logarithmic':
+                    pData[pDataName]['norm'][i] = mpl.colors.LogNorm(vmin=pData[pDataName]['clim'][i][0], vmax=pData[pDataName]['clim'][i][1])
+                pData[pDataName]['rgba_mappable'][i] = mpl.cm.ScalarMappable(cmap=pData[pDataName]['cmap'][i], norm=pData[pDataName]['norm'][i])
+
+                ## Map rgba cmap -> rgb
+                pData[pDataName]['cbar_mappable'][i] = mpl.cm.ScalarMappable(cmap=pData[pDataName]['cmap'][i]+"_rgb", norm=pData[pDataName]['norm'][i])
+                pData[pDataName]['cbar_mappable'][i].set_array((0, 1))
+
+
+def calculate_pData(Data, pData, i):
+    for pDataName in pData:
+        ## data -> pdata -> rgba -> rgb
+        if pData[pDataName]['type'] == 'rgba':
+            n = len(pData[pDataName]['input'])
+            for idx in range(n):
+                dataName = pData[pDataName]['input'][idx]
+                if Data[dataName]['type'] == 'matrix':
+                    data_RGBA = pData[pDataName]['rgba_mappable'][idx].to_rgba(Data[dataName]['data'])
+                elif Data[dataName]['type'] == 'tracks':
+                    trackDataMatrix, trackAlpha = pt.getTrackMatrix(Data[dataName]['data'], i, tracksCutoff,
+                                                                    matrixRange, tracksFadeFactor)
+                    data_RGBA = pData[pDataName]['rgba_mappable'][idx].to_rgba(trackDataMatrix)
+                    data_RGBA[..., 3] = trackAlpha
+                if idx == 0:
+                    background = np.ones(data_RGBA.shape)
+                    data_RGB = tc.alphaBlend(data_RGBA, background)
+                else:
+                    data_RGB = tc.alphaBlend(data_RGBA, data_RGB)
+            pData[pDataName]['data'] = data_RGB
+
+
+def initialize(Data, pData):
+    load_Filenames(Data)
+    load_data_ParticleTracking(Data)
+    create_mappables(pData)
+
+
+def plot(i):
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
     fig, ax = plt.subplots(nrows=1)
 
-    ## load data
-    for folder in dataFolders:
-        Current_filename = files[i]
-        data[folder] = (np.fromfile(folder + dirDiv + Current_filename, dtype='f')).reshape(size[folder])
+    load_data_Matrix(Data, i)
+    calculate_pData(Data, pData, i)
 
-    ## data -> pdata -> rgba -> rgb
-    for idx, pName in enumerate(pNames):
-        if pName == 'tracks':
-            trackDataMatrix, trackAlpha = pt.getTrackMatrix(i, trackData, tracksFadeFactor, tracksCutoff, matrixRange)
-            pData[pName] = trackDataMatrix
-        else:
-            pData[pName] = data[pName]
+    for pDataName in pData:
+        if pData[pDataName]['type'] == 'rgba':
+            ax.imshow(pData[pDataName]['data'], extent=plotExtent, aspect=1, origin='lower')
+            n = len(pData[pDataName]['input'])
+            for idx in range(n):
+                if pData[pDataName]['cbar'][idx]:
+                    plt.colorbar(pData[pDataName]['cbar_mappable'][idx], ax=ax, shrink=0.52,
+                                 label=pData[pDataName]['cbarLabel'][idx])
 
-        data_RGBA[pName] = customDataMapper[pName].to_rgba(pData[pName])
-        if pName == 'tracks':
-            data_RGBA[pName][..., 3] = trackAlpha
-
-        if idx == 0:
-            background = np.ones(data_RGBA[pName].shape)
-            data_RGB = tc.alphaBlend(data_RGBA[pName], background)
-        else:
-            data_RGB = tc.alphaBlend(data_RGBA[pName], data_RGB)
-
-    # Plot rgb data
-    #if i == 0:
-    im = NonUniformImage(ax)
-    im.set_data(x, y, data_RGB)
-    ax.images.append(im)
-
-    #trackax = {}
-    #for track in trackFiles[::trackSkip]:
-    #    points = np.array([trackData[track][:1, 0] / 1e-4, trackData[track][:1, 1] / 1e-4]).T.reshape(-1, 1, 2)
-    #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    #    trackax[track] = LineCollection(segments, array=trackData[track][:1, 6] / MeV, cmap=('tracks' + "_alpha"),
-    #                                    norm=custom_norm['tracks'])
-    #    ax.add_collection(trackax[track])
-
-    ax.set_xlim(plotExtent[0], plotExtent[1])
-    ax.set_ylim(plotExtent[2], plotExtent[3])
-    ax.set_aspect('equal')
-
+    fig.set_tight_layout(True)
     ax.set_xlabel(r'$x$ ($\mu$m)')
     ax.set_ylabel(r'$y$ ($\mu$m)')
-    for pName in pNames:
-        if cbar[pName]:
-            plt.colorbar(custom_cbar[pName], ax=ax, shrink=0.52, label=cbar_label[pName])
-    fig.set_tight_layout(True)
-
-    #else:
-    #    im.set_data(x, y, data_RGB)
-        #for track in trackFiles[::trackSkip]:
-        #    points = np.array([trackData[track][max(0,i-10):i+1, 0] / 1e-4, trackData[track][max(0,i-10):i+1, 1] / 1e-4]).T.reshape(-1, 1, 2)
-        #    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        #    trackax[track].set_segments(segments)
-        #    trackax[track].set_array(trackData[track][max(0,i-10):i+1, 6] / MeV)
-
     ax.set_title("Frame " + str(i))
-    #fig.show()
     fig.canvas.draw()
-    fig.savefig(os.path.splitext(Current_filename)[0] + '.png', dpi=300)
-    print("Saved " + str(i) + "!")
+    fig.savefig(os.path.splitext(Data['Ex']['filenames'][i])[0] + '.png', dpi=300)
+    # TODO: Fix the file naming and an output dictionary.
     plt.close()
 
-# Create new colormaps
-tc.make_rgb_colormap("GreenBlack", ['g', 0.75, 'g', 'k'])
-tc.make_rgb_colormap("RedBlack", ['r', 0.75, 'r', 'k'])
 
-# Declare structs
-size = {}
-pData = {}
-cmap = {}
-clim = {}
-cmapNorm = {}
-cbar = {}
-alpha = {}
+######################################################################
+######################################################################
 
-custom_cmap = {}
-custom_norm = {}
-customDataMapper = {}
-custom_cbar = {}
-cbar_label = {}
-
-trackData = {}
-
-
-# Define the plot
-X_Min=-0.0015000000000000000312250225675825276994
-Y_Min=-0.0030486282601243420466163858151276144781
-Z_Min=-0.0000007442940088194194449747035681463903
-X_Max=0.0045972565202486836283268800684709276538
-Y_Max=0.0030486282601243420466163858151276144781
-Z_Max=0.0000007442940088194194449747035681463903
-MeV=0.0000016021765700000000157555805901932189
-
-dirDiv = '/'
-dataFolders = ['Ex2D','Electron2D','Proton2D']
-pNames = ['Ex2D','Electron2D','Proton2D','tracks']
-tracksFadeFactor = np.sqrt(np.sqrt(0.5))
-tracksCutoff = 0.1*MeV
-trackSkip = 1
-
-size['Electron2D'] = (1024, 1024)
-size['Proton2D'] = (1024, 1024)
-size['Ex2D'] = (1024, 1024)
-
-cmap['Electron2D'] = 'GreenBlack'
-cmap['Proton2D'] = 'RdPu'
-cmap['Ex2D'] = 'seismic'
-cmap['tracks'] = 'YlOrRd'
-
-clim['Electron2D'] = (1e4, 1e7)
-clim['Proton2D'] = (1e3, 1e5)
-clim['Ex2D'] = (-2.5e8, 2.5e8)
-clim['tracks'] = (0,5*MeV)
-
-cmapNorm['Electron2D'] = 'logarithmic'
-cmapNorm['Proton2D'] = 'logarithmic'
-cmapNorm['Ex2D'] = 'linear'
-cmapNorm['tracks'] = 'linear'
-
-cbar['Electron2D'] = True
-cbar['Proton2D'] = True
-cbar['Ex2D'] = True
-cbar['tracks'] = True
-
-cbar_label['Electron2D'] = r'Electron Density'
-cbar_label['Proton2D'] = r'Proton Density'
-cbar_label['Ex2D'] = r'$E_x$'
-cbar_label['tracks'] = r'$E_k$ (MeV)'
-
+## Create Colormaps
 def Opaque(x): return 1
 def Linear(x): return x
 def Sqrt(x): return np.sqrt(x)
 def LinearSymmetric(x): return np.abs(2*x-1)
 
-alpha['Electron2D'] = Linear
-alpha['Proton2D'] = Sqrt
-alpha['Ex2D'] = LinearSymmetric
-alpha['tracks'] = Opaque
+tc.make_rgb_colormap("GreenBlack", ['g', 0.75, 'g', 'k'])
+tc.setAlpha("GreenBlack", Linear)
+tc.make_alphablended_cmap("GreenBlack", "GreenBlack_rgb")
 
-## Create colormaps and data mappings
-for pName in pNames:
-    ## Create rgba colormap
-    # TODO: Safeguard built-in colormaps, unless explicitly overwriting them.
-    tc.setAlpha(cmap[pName], alpha[pName])
+tc.setAlpha("RdPu", Sqrt)
+tc.make_alphablended_cmap("RdPu", "RdPu_rgb")
 
-    ## Create float -> rgba mapping
-    if cmapNorm[pName] == 'linear':
-        custom_norm[pName] = mpl.colors.Normalize(vmin=clim[pName][0], vmax=clim[pName][1])
-    elif cmapNorm[pName] == 'logarithmic':
-        custom_norm[pName] = mpl.colors.LogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-    # elif cmapNorm[pName] == 'symlogarithmic'
-    #    custom_norm[pName] = mpl.colors.SymLogNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-    # elif cmapNorm[pName] == 'power'
-    #    custom_norm[pName] = mpl.colors.PowerNorm(vmin=clim[pName][0], vmax=clim[pName][1])
-    customDataMapper[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=cmap[pName])
+tc.setAlpha("seismic", LinearSymmetric)
+tc.make_alphablended_cmap("seismic", "seismic_rgb")
 
-    ## Map rgba cmap -> rgb
-    tc.make_alphablended_cmap(cmap[pName], cmap[pName] + "_rgb")
-    custom_cbar[pName] = mpl.cm.ScalarMappable(norm=custom_norm[pName], cmap=cmap[pName] + "_rgb")
-    custom_cbar[pName].set_array(0)
+tc.make_alphablended_cmap("YlOrRd", "YlOrRd_rgb")
+# TODO: Safeguard built-in colormaps, unless explicitly overwriting them.
+# TODO: Automate creation (and use of) alphablended cmaps for colorbars.
 
-# Fetch file names
-files = sorted([os.path.basename(filename) for filename in glob.glob(dataFolders[0] + dirDiv + '*.bin')])
 
-trackFiles = [os.path.basename(x) for x in glob.glob('ParticleTracking/*.txt')]
-for track in trackFiles[::trackSkip]:
-    trackData[track] = np.loadtxt('ParticleTracking' + dirDiv + track)
+dirDiv = '/'
+X_Min = -0.0015000000000000000312250225675825276994
+Y_Min = -0.0030486282601243420466163858151276144781
+Z_Min = -0.0000007442940088194194449747035681463903
+X_Max = 0.0045972565202486836283268800684709276538
+Y_Max = 0.0030486282601243420466163858151276144781
+Z_Max = 0.0000007442940088194194449747035681463903
+MeV = 0.0000016021765700000000157555805901932189
 
+trackSkip = 1
+tracksFadeFactor = np.sqrt(np.sqrt(0.5))
+tracksCutoff = 0.1*MeV
 matrixRange = np.array([X_Min,X_Max,Y_Min,Y_Max])
-plotExtent = matrixRange/1e-4
-x = np.linspace(X_Min/1e-4,X_Max/1e-4,1024)
-y = np.linspace(Y_Min/1e-4,Y_Max/1e-4,1024)
+plotExtent = np.array([X_Min,X_Max,Y_Min,Y_Max])/1e-4
 
-def main():
-    #pool = multiprocessing.Pool(processes=2)
-    #pool.imap_unordered(plot2D, range(len(files)))
-    #pool.close()
-    #pool.join()
 
-    for i in tqdm(range(len(files))):
-        plot2D(i)
+Data = {}
 
-t0 = time.time()
-main()
-print(time.time()-t0)
+Data['Ex'] = {}
+Data['Ex']['dir'] = 'Ex2D'
+Data['Ex']['type'] = 'matrix'
+Data['Ex']['size'] = (1024, 1024)
+#Data['Ex']['dim'] = ('x', 'y')
+#Data['Ex']['coords'] = [np.linspace(X_Min,X_Max,1024), np.linspace(Y_Min,Y_Max,1024)]
 
+Data['Ne'] = {}
+Data['Ne']['dir'] = 'Electron2D'
+Data['Ne']['type'] = 'matrix'
+Data['Ne']['size'] = (1024, 1024)
+#Data['Ne']['dim'] = ('x', 'y')
+#Data['Ne']['coords'] = [np.linspace(X_Min,X_Max,1024), np.linspace(Y_Min,Y_Max,1024)]
+
+Data['Np'] = {}
+Data['Np']['dir'] = 'Proton2D'
+Data['Np']['type'] = 'matrix'
+Data['Np']['size'] = (1024, 1024)
+#Data['Np']['dim'] = ('x', 'y')
+#Data['Np']['coords'] = [np.linspace(X_Min,X_Max,1024), np.linspace(Y_Min,Y_Max,1024)]
+
+Data['ElectronTracks'] = {}
+Data['ElectronTracks']['dir'] = 'ParticleTracking'
+Data['ElectronTracks']['type'] = 'tracks'
+#Data['ElectronTracks']['dim'] = ['x', 'y', 'z', 'px', 'py', 'pz', 'E']
+# TODO: Set default values for e.g. 'dir'.
+# TODO: Make use of 'dim' and 'coords'.
+
+
+pData = {}
+
+pData['XY'] = {}
+pData['XY']['type'] = 'rgba'
+pData['XY']['input'] = ['Ex', 'Ne', 'Np', 'ElectronTracks']
+pData['XY']['cmap'] = ['seismic', 'GreenBlack', 'RdPu', 'YlOrRd']
+pData['XY']['clim'] = [(-2.5e8, 2.5e8), (1e4, 1e7), (1e3, 1e5), (0,5*MeV)]
+pData['XY']['norm'] = ['linear', 'logarithmic', 'logarithmic', 'linear']
+pData['XY']['cbar'] = [True, True, True, True]
+pData['XY']['cbarLabel'] = [r'$E_x$', r'Electron Density', r'Proton Density', r'$E_k$ (MeV)']
+
+
+initialize(Data, pData)
+for i in tqdm(range(len(Data['Ex']['filenames']))):
+    plot(i)
+
+# TODO: Split Data and pData such that multiprocessing will can be re-instated.
+#pool = multiprocessing.Pool(processes=2)
+#pool.imap_unordered(plot2D, range(len(files)))
+#pool.close()
+#pool.join()
