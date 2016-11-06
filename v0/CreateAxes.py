@@ -123,10 +123,6 @@ def setAxes(axes, axesSettings):
 
 def createAxes(axes, axesSettings):
     ax = initializeAxes(axes, axesSettings)
-
-    ax.ticklabel_format(axis='x', style='sci', scilimits=(-2, 2))
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
-
     return ax
 
 

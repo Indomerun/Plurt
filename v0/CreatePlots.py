@@ -110,3 +110,4 @@ def add_plots(axes, plotSettings, dependableSettings, frameNumber):
 # TODO: Option for hiding the bbox, ticks, tick labels and labels
 # TODO: Move get_label to a new file for auxilary functions
 # TODO: Rescale cbar ticks with units
+# TODO: Fix rescaling to not break scilimits.

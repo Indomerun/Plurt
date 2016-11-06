@@ -9,7 +9,7 @@ from tqdm import tqdm
 # --- Font Settings --- #
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
-
+plt.rc('axes.formatter', limits=(-2, 2))
 
 # --- Create Colormaps --- #
 def Opaque(x): return 1
