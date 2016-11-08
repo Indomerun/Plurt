@@ -1,5 +1,3 @@
-import matplotlib.ticker as ticker
-
 
 def setAxes(axes, axesSettings):
     for axisSettings in axesSettings:
@@ -18,13 +16,19 @@ def setAxis(ax, axisSettings):
             if key == 'xlabel':
                 ax.set_xlabel(value)
             if key == 'xlim':
-                ax.set_xlim(value)
+                xlim = value
+                if 'xunits_value' in axisSettings.keys():
+                    xlim = [xlim[0]/axisSettings['xunits_value'], xlim[1]/axisSettings['xunits_value']]
+                ax.set_xlim(xlim)
             if key == 'xscale':
                 ax.set_xscale(value)
             if key == 'ylabel':
                 ax.set_ylabel(value)
             if key == 'ylim':
-                ax.set_ylim(value)
+                ylim = value
+                if 'yunits_value' in axisSettings.keys():
+                    ylim = [ylim[0]/axisSettings['yunits_value'], ylim[1]/axisSettings['yunits_value']]
+                ax.set_ylim(ylim)
             if key == 'yscale':
                 ax.set_yscale(value)
 
@@ -77,10 +81,3 @@ def setAxis(ax, axisSettings):
                     ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
                     ax.yaxis.set_label_position('right')
 
-
-    if 'xunits_value' in axisSettings.keys():
-        xticks = ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x/axisSettings['xunits_value']))
-        ax.xaxis.set_major_formatter(xticks)
-    if 'yunits_value' in axisSettings.keys():
-        yticks = ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x/axisSettings['yunits_value']))
-        ax.yaxis.set_major_formatter(yticks)

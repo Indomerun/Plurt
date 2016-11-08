@@ -129,5 +129,6 @@ class PlotSettings(MappableSettings):
                              norm='',
                              show_cbar='',
                              cbarlabel=lambda x: aux.get_label(x, 'cbarlabel', 'cbarunits'),
+                             cbarunits_value='',
                              cax='',
                              )

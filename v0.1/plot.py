@@ -71,7 +71,4 @@ def Plot(axesSettings, plotSettings, saveFigures=True, i=None):
 # TODO: Add multiprocessing
 # TODO: Implement alternative "alpha"-blending
 # TODO: Add 'zorder' for manual control of what will be on top
-# TODO: Option for hiding the bbox, ticks, tick labels and labels
-# TODO: Rescale cbar ticks with units
-# TODO: Fix rescaling to not break scilimits.
 # TODO: Move cmap creation from plot.py

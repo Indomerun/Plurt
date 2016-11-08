@@ -22,7 +22,6 @@ def add_plot(axes, plotSettings, loadedData, frameNumber):
 
 
 def plot_rgba(axes, data, plotSettings):
-    plotExtent = [plotSettings['xMin'], plotSettings['xMax'], plotSettings['yMin'], plotSettings['yMax']]
     if plotSettings['data_type'] == 'float':
         data_RGBA = plotSettings['mappable'].to_rgba(data)
     elif plotSettings['data_type'] == 'bmp':
@@ -31,7 +30,7 @@ def plot_rgba(axes, data, plotSettings):
     ax = axes[plotSettings['ax']]
     im = ax.get_images()
     if len(im) == 0:
-        ax.imshow(data_RGBA, extent=plotExtent, origin='lower', aspect='auto')
+        ax.imshow(data_RGBA, extent=plotSettings['plotExtent'], origin='lower', aspect='auto')
     elif len(im) == 1:
         imdata = im[0].get_array()
         blendedData = tc.alphaBlend(data_RGBA, imdata)
@@ -40,9 +39,9 @@ def plot_rgba(axes, data, plotSettings):
 
 def plot_cbar(axes, plotSettings):
     if 'cax' in plotSettings.keys():
-        cbar = plt.colorbar(plotSettings['mappable'], cax=axes[plotSettings['cax']])
+        cbar = plt.colorbar(plotSettings['cbar_mappable'], cax=axes[plotSettings['cax']])
     else:
-        cbar = plt.colorbar(plotSettings['mappable'], ax=axes[plotSettings['ax']])
+        cbar = plt.colorbar(plotSettings['cbar_mappable'], ax=axes[plotSettings['ax']])
     if 'cbarlabel' in plotSettings.keys():
         cbar.set_label(plotSettings['cbarlabel'])
 
