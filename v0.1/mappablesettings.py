@@ -104,8 +104,8 @@ class AxisSettings(MappableSettings):
                              hide_xticks='',                    # 'top', 'bottom', or 'both'
                              hide_xborder='',                   # 'top', 'bottom', or 'both'
                              xlabel_top='',                     # True or False
-                             hide_yticks='',                    # 'top', 'bottom', or 'both'
-                             hide_yborder='',                   # 'top', 'bottom', or 'both'
+                             hide_yticks='',                    # 'left', 'right', or 'both'
+                             hide_yborder='',                   # 'left', 'right', or 'both'
                              ylabel_right='',                   # True or False
                              )
 
