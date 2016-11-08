@@ -92,16 +92,21 @@ class AxisSettings(MappableSettings):
                              xunits_value='',
                              xlim='',
                              xscale='',
-                             visible_xticks='',
-                             xlabel_top='',
-                             xticks_out='',
                              ylabel=lambda x: aux.get_label(x, 'ylabel', 'yunits'),
                              yunits_value='',
                              ylim='',
                              yscale='',
-                             visible_yticks='',
-                             ylabel_right='',
-                             yticks_out='',
+                             hide_axis='',                      # True or False
+                             hide_ticks='',                     # True or False
+                             hide_border='',                    # True or False
+                             hide_ticklabels='',                # 'x', 'y' or 'both'
+                             ticks_out='',                      # 'x', 'y' or 'both'
+                             hide_xticks='',                    # 'top', 'bottom', or 'both'
+                             hide_xborder='',                   # 'top', 'bottom', or 'both'
+                             xlabel_top='',                     # True or False
+                             hide_yticks='',                    # 'top', 'bottom', or 'both'
+                             hide_yborder='',                   # 'top', 'bottom', or 'both'
+                             ylabel_right='',                   # True or False
                              )
 
 
