@@ -4,11 +4,8 @@ import auxilaries as aux
 class MappableSettings(object):
     _default_mappings = {}
 
-    def __init__(self, settings=None):
-        if settings is None:
-            self._settings = {}
-        else:
-            self._settings = settings.copy()
+    def __init__(self, **settings):
+        self._settings = settings.copy()
 
         self._mappings = self._default_mappings
         self._is_mapped = False
@@ -54,7 +51,6 @@ class MappableSettings(object):
 
     def add_value(self, key, value):
         self._mapped_settings[key] = value
-
 
 
 class FigureSettings(MappableSettings):
@@ -132,3 +128,13 @@ class PlotSettings(MappableSettings):
                              cbarunits_value='',
                              cax='',
                              )
+
+
+class AxesSettingsContainer(list):
+    def append(self, **kwargs):
+        super(AxesSettingsContainer, self).append(AxisSettings(**kwargs))
+
+
+class PlotSettingsContainer(list):
+    def append(self, **kwargs):
+        super(PlotSettingsContainer, self).append(PlotSettings(**kwargs))

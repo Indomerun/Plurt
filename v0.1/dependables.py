@@ -1,6 +1,7 @@
 import matplotlib as mpl
-import TransparentColormaps as tc
+import transparentcolormaps as tc
 import numpy as np
+
 
 def calculate_dependables(axesSettings, plotSettings):
     for settings in plotSettings:
@@ -56,5 +57,3 @@ def calculateDependables(axisSettings, plotSettings):
             cbar_mappable.set_cmap('cbar_'+plotSettings['cmap'])
             cbar_mappable.set_norm(plotSettings['cbar_norm'])
             plotSettings.add_value('cbar_mappable', cbar_mappable)
-
-
